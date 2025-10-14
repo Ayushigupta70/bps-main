@@ -168,7 +168,7 @@ export const fetchIncomingQuotations = createAsyncThunk(
 const initialState = {
   list: [],
   list2: [],
-  incomingList: [],
+  quotationsList: [],
   requestCount: 0,
   activeDeliveriesCount: 0,
   cancelledDeliveriesCount: 0,
@@ -236,23 +236,7 @@ const quotationSlice = createSlice({
       state.viewedBooking = null;
     }
   },
-  extraReducers: (builder) => {
-    builder
-      
-      .addCase(fetchIncomingQuotations.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchIncomingQuotations.fulfilled, (state, action) => {
-        state.loading = false;
-        state.incomingList = action.payload;
-      })
-      .addCase(fetchIncomingQuotations.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
 
-  },
   extraReducers: (builder) => {
     builder
       //for booking.
@@ -373,6 +357,18 @@ const quotationSlice = createSlice({
       .addCase(getQuotationBookingSummaryByDate.fulfilled, (state, action) => {
         state.loading = false;
         state.list2 = action.payload;
+      })
+      .addCase(fetchIncomingQuotations.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchIncomingQuotations.fulfilled, (state, action) => {
+        state.loading = false;
+        state.quotationsList = action.payload;
+      })
+      .addCase(fetchIncomingQuotations.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       })
 
   }

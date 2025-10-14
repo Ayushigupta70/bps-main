@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   Box,
-  TextField,
   Button,
   Paper,
   Stack,
@@ -11,6 +10,8 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  CircularProgress,
+  Typography,
 } from "@mui/material";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -25,76 +26,66 @@ import { fetchIncomingQuotations } from "../../../../features/quotation/quotatio
 
 const QBookingForm = () => {
   const dispatch = useDispatch();
-  const {incomingList, loading, error} = useSelector(
-    (state)=> state.bookings
+
+  // ✅ Use the correct store key
+  const { quotationsList, loading, error } = useSelector(
+    (state) => state.quotations
   );
+
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
- 
+
+  // Search handler
   const handleSearch = () => {
     if (!startDate || !endDate) {
       alert("Please select both start and end dates");
       return;
     }
     const fromDate = startDate.toISOString().split("T")[0];
-    const toDate = startDate.toISOString().split("T")[0];
-    dispatch(fetchIncomingQuotations({fromDate, toDate}));
+    const toDate = endDate.toISOString().split("T")[0];
+    dispatch(fetchIncomingQuotations({ fromDate, toDate }));
   };
-  
-  
-  // Handle PDF download
+
+  // PDF download handler
   const handleDownloadPDF = () => {
+    if (!quotationsList?.length) return;
+
     const doc = new jsPDF();
     doc.setFontSize(16);
-    doc.text("Booking Report", 20, 20);
+    doc.text("Quotation Report", 20, 20);
 
     doc.setFontSize(12);
-    doc.text(
-      `Start Date: ${startDate ? startDate.toLocaleDateString() : "-"}`,
-      20,
-      40
-    );
-    doc.text(
-      `End Date: ${endDate ? endDate.toLocaleDateString() : "-"}`,
-      20,
-      50
-    );
+    doc.text(`Start Date: ${startDate ? startDate.toLocaleDateString() : "-"}`, 20, 40);
+    doc.text(`End Date: ${endDate ? endDate.toLocaleDateString() : "-"}`, 20, 50);
 
     let y = 70;
-    incomingList.forEach((row, index) => {
+    quotationsList.forEach((row, index) => {
       doc.text(
-        `${index + 1}. ${row.sender} -> ${row.receiver} (${row.drop})`,
+        `${index + 1}. ${row.senderName} -> ${row.receiverName} (${row.drop})`,
         20,
         y
       );
       y += 10;
     });
 
-    doc.save("report.pdf");
+    doc.save("quotation_report.pdf");
   };
 
   return (
     <Paper elevation={3} sx={{ p: 3, maxWidth: "95%", mx: "auto", mt: 4 }}>
       {/* Filters */}
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={3}
-      >
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <LocalizationProvider dateAdapter={AdapterDateFns}>
           <Stack direction="row" spacing={2}>
             <DatePicker
               label="Start Date"
               value={startDate}
-              format="dd/MM/yyyy"
               onChange={(newValue) => setStartDate(newValue)}
               slotProps={{ textField: { size: "small" } }}
             />
             <DatePicker
               label="End Date"
               value={endDate}
-              format="dd/MM/yyyy"
               onChange={(newValue) => setEndDate(newValue)}
               slotProps={{ textField: { size: "small" } }}
             />
@@ -107,12 +98,18 @@ const QBookingForm = () => {
         <Button
           variant="contained"
           onClick={handleDownloadPDF}
-          disabled={incomingList.length === 0}
+          disabled={!quotationsList?.length}
         >
           Download PDF
         </Button>
       </Box>
-      {incomingList.length > 0 && (
+
+      {/* Loading/Error */}
+      {loading && <CircularProgress />}
+      {error && <Typography color="error">{error}</Typography>}
+
+      {/* Table */}
+      {quotationsList?.length > 0 && (
         <Table>
           <TableHead sx={{ backgroundColor: "#1976d2" }}>
             <TableRow>
@@ -128,16 +125,16 @@ const QBookingForm = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {incomingList.map((row, index) => (
-              <TableRow key={row.id} hover>
+            {quotationsList.map((row, index) => (
+              <TableRow key={row.id || index} hover>
                 <TableCell>{index + 1}</TableCell>
                 <TableCell>{row.orderBy}</TableCell>
-                <TableCell>{row.date}</TableCell>
-                <TableCell>{row.sender}</TableCell>
-                <TableCell>{row.pickup}</TableCell>
-                <TableCell>{row.receiver}</TableCell>
-                <TableCell>{row.drop}</TableCell>
-                <TableCell>{row.contact}</TableCell>
+                <TableCell>{row.quotationDate}</TableCell>
+                <TableCell>{row.fromCustomerName}</TableCell>
+                <TableCell>{row.fromCity}</TableCell>
+                <TableCell>{row.toCustomerName}</TableCell>
+                <TableCell>{row.toCity}</TableCell>
+                <TableCell>{row.mobile}</TableCell>
                 <TableCell>
                   <IconButton color="primary">
                     <VisibilityIcon />
@@ -159,6 +156,11 @@ const QBookingForm = () => {
             ))}
           </TableBody>
         </Table>
+      )}
+
+      {/* No data message */}
+      {quotationsList?.length === 0 && !loading && (
+        <Typography mt={2}>No quotations found for selected dates.</Typography>
       )}
     </Paper>
   );
