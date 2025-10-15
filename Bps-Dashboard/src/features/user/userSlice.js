@@ -5,7 +5,8 @@ import { AUTH_API, FILES_BASE_URL } from '../../utils/api';
 const BASE_URL = AUTH_API;
 
 export const createUsers = createAsyncThunk(
-    'createUser/user', async (data, thunkApi) => {
+    'createUser/user',
+    async (data, thunkApi) => {
         try {
             const formData = new FormData();
             for (const key in data) {
@@ -17,15 +18,43 @@ export const createUsers = createAsyncThunk(
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
-            })
-            return res.data.message
-        }
-        catch (err) {
-            console.log(err.response?.data?.message)
-            return thunkApi.rejectWithValue(err.response?.data?.message || 'Failed to create the user');
+            });
+            return res.data.message;
+        } catch (err) {
+            console.log('Full error object:', err);
+            console.log('Error response:', err.response);
+
+            let errorMessage = 'Failed to create the user';
+
+            // Handle HTML response
+            if (err.response?.data && typeof err.response.data === 'string') {
+                const htmlContent = err.response.data;
+
+                // Extract error message from HTML using regex
+                const errorMatch = htmlContent.match(/Error: ([^<]+)/);
+                if (errorMatch && errorMatch[1]) {
+                    // Replace HTML entities with proper characters
+                    errorMessage = errorMatch[1]
+                        .trim()
+                        .replace(/&#39;/g, "'")
+                        .replace(/&quot;/g, '"')
+                        .replace(/&amp;/g, '&');
+                }
+            }
+            // Handle JSON response
+            else if (err.response?.data?.message) {
+                errorMessage = err.response.data.message;
+            }
+
+            // Return a consistent error structure
+            return thunkApi.rejectWithValue({
+                message: errorMessage,
+                errors: err.response?.data?.errors || null,
+                status: err.response?.status
+            });
         }
     }
-)
+);
 
 export const deleteUser = createAsyncThunk(
     'deleteUser/user', async (adminId, thunkApi) => {

@@ -1,19 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useFormik } from 'formik';
 import {
-    Box,
-    Button,
-    Grid,
-    MenuItem,
-    TextField,
-    Typography,
-    FormControl,
-    InputLabel,
-    Select,
-    FormHelperText,
-    IconButton,
-    InputAdornment
+    Box, Button, Grid, MenuItem, TextField, Typography,
+    FormControl, InputLabel, Select, FormHelperText,
+    IconButton, InputAdornment, Snackbar
 } from "@mui/material";
+
 import * as Yup from "yup";
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchStates, fetchCities, clearCities } from '../../../../features/Location/locationSlice';
@@ -47,6 +39,7 @@ const UserForm = () => {
     const { states, cities } = useSelector((state) => state.location);
     const { list: stations } = useSelector((state) => state.stations);
     const [showPassword, setShowPassword] = useState(false);
+    const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "error" });
 
     const handleClickShowPassword = () => setShowPassword((prev) => !prev);
 
@@ -74,9 +67,23 @@ const UserForm = () => {
             try {
                 await dispatch(createUsers(values)).unwrap();
                 formik.resetForm();
+                setSnackbar({ open: true, message: "User registered successfully", severity: "success" });
                 navigate('/users');
             } catch (error) {
-                console.log("Error while adding User", error);
+                console.log("Full error:", error);
+
+                // Handle the new consistent error structure
+                if (error?.errors) {
+                    Object.keys(error.errors).forEach((field) => {
+                        formik.setFieldError(field, error.errors[field]);
+                    });
+                }
+
+                setSnackbar({
+                    open: true,
+                    message: error?.message || "Registration failed",
+                    severity: "error"
+                });
             }
         },
     });
@@ -352,6 +359,13 @@ const UserForm = () => {
                     </Grid>
                 </Grid>
             </form>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                message={snackbar.message}
+            />
+
         </Box>
     );
 };
