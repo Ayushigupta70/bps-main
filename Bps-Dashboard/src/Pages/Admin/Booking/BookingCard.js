@@ -44,6 +44,7 @@ import { bookingRequestCount, activeBookingCount, cancelledBookingCount, fetchBo
 import SendIcon from '@mui/icons-material/Send';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import SlipModal from "../../../Components/SlipModal";
+import { finalizeDelivery } from '../../../features/delivery/deliverySlice';
 const createData = (id, orderby, date, namep, pickup, named, drop, contact) => ({
   id,
   orderby,
@@ -195,8 +196,6 @@ const BookingCard = () => {
     navigate(`/booking/${bookingId}`);
   };
 
-
-
   const handleEdit = (bookingId) => {
     navigate(`/editbooking/${bookingId}`);
   };
@@ -227,10 +226,24 @@ const BookingCard = () => {
   const handleCloseSlip = () => {
     dispatch(clearViewedBooking());
   };
-  const handleActiveChange = (bookingId, isActive) => {
-    console.log("Booking", bookingId, "active:", isActive);
-
+  const handleActiveChange = (orderId, isActive) => {
+    if (isActive) {
+      if (window.confirm("Are you sure you want to finalize this delivery?")) {
+        dispatch(finalizeDelivery(orderId))
+          .unwrap()
+          .then(() => {
+            alert("Delivery finalized successfully!");
+            dispatch(fetchBookingsByType('active'));
+          })
+          .catch((error) => {
+            alert(`Failed to finalize delivery: ${error}`);
+          });
+      }
+    } else {
+      alert("You cannot unfinalize a delivery once completed.");
+    }
   };
+
   const filteredRows = (
     isRevenueCardActive
       ? (Array.isArray(revenueData)
@@ -480,7 +493,8 @@ const BookingCard = () => {
                           <TableCell>
                             <Checkbox
                               checked={row.isActive || false}
-                              onChange={(e) => handleActiveChange(row.bookingId, e.target.checked)}
+                              disabled={row.isFinalized}
+                              onChange={(e) => handleActiveChange(row.orderId, e.target.checked)}
                               color="primary"
                             />
                           </TableCell>

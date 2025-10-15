@@ -60,14 +60,26 @@ export const finalDeliveryWhatsApp = createAsyncThunk(
     }
   }
 )
+export const finalizeDelivery = createAsyncThunk(
+  'delivery/finalizeDelivery', async (orderId, thunkApi) => {
+    try {
+      const res = await axios.put(`${BASE_URL}/finalize/${orderId}`);
+      return res.data;
+    } catch (err) {
+      return thunkApi.rejectWithValue(err.response?.message?.data);
+    }
+  }
+)
 const deliverySlice = createSlice({
   name: 'delivery',
   initialState: {
     deliveries: [],
     loading: false,
     error: null,
+
   },
-  reducers: {},
+  reducers: {
+  },
   extraReducers: (builder) => {
     builder
       .addCase(assignDeliveries.pending, (state) => {
@@ -118,10 +130,22 @@ const deliverySlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-
+      .addCase(finalizeDelivery.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.success = false;
+      })
+      .addCase(finalizeDelivery.fulfilled, (state, action) => {
+        state.loading = false;
+        state.success = true;
+        state.finalizedDelivery = action.payload;
+      })
+      .addCase(finalizeDelivery.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
       ;
   },
 });
-
 
 export default deliverySlice.reducer;
