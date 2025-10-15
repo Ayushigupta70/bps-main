@@ -45,6 +45,7 @@ import { Snackbar, Alert } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import QSlipModal from "../../../Components/QSlipModal";
+import { finalizeDelivery } from '../../../features/delivery/deliverySlice';
 function descendingComparator(a, b, orderBy) {
   if (b[orderBy] < a[orderBy]) return -1;
   if (b[orderBy] > a[orderBy]) return 1;
@@ -248,9 +249,24 @@ const QuotationCard = () => {
   const handleView = (bookingId) => navigate(`/viewquotation/${bookingId}`);
   const handleUpdate = (bookingId) => navigate(`/updatequotation/${bookingId}`);
 
-  const handleActiveChange = (bookingId, isActive) => {
-    console.log("Booking", bookingId, "active:", isActive);
+  const handleActiveChange = (orderId, isActive) => {
+    if (isActive) {
+      if (window.confirm("Are you sure you want to finalize this delivery?")) {
+        dispatch(finalizeDelivery(orderId))
+          .unwrap()
+          .then(() => {
+            alert("Delivery finalized successfully!");
+            dispatch(fetchActiveBooking());
+          })
+          .catch((error) => {
+            alert(`Failed to finalize delivery: ${error}`);
+          });
+      }
+    } else {
+      alert("You cannot unfinalize a delivery once completed.");
+    }
   };
+
   return (
     <Box sx={{ p: 2 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 2, mb: 2 }}>
@@ -401,7 +417,8 @@ const QuotationCard = () => {
                           <TableCell>
                             <Checkbox
                               checked={row.isActive || false}
-                              onChange={(e) => handleActiveChange(row.bookingId, e.target.checked)}
+                              disabled={row.isFinalized}
+                              onChange={(e) => handleActiveChange(row.orderId, e.target.checked)}
                               color="primary"
                             />
                           </TableCell>
