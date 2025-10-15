@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useFormik } from 'formik';
+import Snackbar from '@mui/material/Snackbar';
+import MuiAlert from '@mui/material/Alert';
 import * as Yup from 'yup';
 import {
   Box, Button, Grid, TextField, InputAdornment, Dialog,
@@ -10,14 +12,15 @@ import { Close, LocalPhone, Email, Home, LocationOn, PinDrop } from '@mui/icons-
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchStates, fetchCities, clearCities } from '../../../../features/Location/locationSlice';
 import { createStation, fetchStations } from '../../../../features/stations/stationSlice';
-import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupee';
-import { Alert } from '@mui/material';
 
 const StationForm = ({ open, onClose }) => {
   const dispatch = useDispatch();
   const { states, cities } = useSelector((state) => state.location);
-  const [serverError, setServerError] = useState('');
-
+  const [snackbar, setSnackbar] = React.useState({
+    open: false,
+    message: '',
+    severity: 'error'  // or 'success', 'info', etc.
+  });
 
   const validationSchema = Yup.object().shape({
     stationName: Yup.string().required('Station name is required'),
@@ -44,24 +47,34 @@ const StationForm = ({ open, onClose }) => {
       gst: '',
     },
     validationSchema,
-    validateOnMount: true,
     onSubmit: async (values) => {
-      setServerError('');
       try {
         await dispatch(createStation(values)).unwrap();
         await dispatch(fetchStations());
         formik.resetForm();
         onClose();
-      } catch (errMessage) {
-        setServerError(errMessage);
-        console.error("Error creating station:", errMessage);
+      } catch (errorPayload) {
+        // errorPayload is the value from rejectWithValue
+        const message = typeof errorPayload === 'string'
+          ? errorPayload
+          : "Something went wrong";
+
+        setSnackbar({
+          open: true,
+          message,
+          severity: 'error'
+        });
       }
     }
+
+
+
   });
 
   useEffect(() => {
     dispatch(fetchStates());
   }, []);
+  // When state changes, fetch cities
   useEffect(() => {
     if (formik.values.state) {
       dispatch(fetchCities(formik.values.state));
@@ -80,11 +93,6 @@ const StationForm = ({ open, onClose }) => {
       </DialogTitle>
 
       <DialogContent dividers>
-        {serverError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {serverError}
-          </Alert>
-        )}
         <form onSubmit={formik.handleSubmit} noValidate>
           <Grid container spacing={2}>
             <Grid item xs={12}>
@@ -129,7 +137,7 @@ const StationForm = ({ open, onClose }) => {
                 value={formik.values.emailId}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
-                error={formik.touched.emailId && Boolean(formik.errors.emailId)}
+                error={formik.touched.email && Boolean(formik.errors.emailId)}
                 helperText={formik.touched.emailId && formik.errors.emailId}
                 InputProps={{
                   startAdornment: (
@@ -252,6 +260,13 @@ const StationForm = ({ open, onClose }) => {
                 onBlur={formik.handleBlur}
                 error={formik.touched.gst && Boolean(formik.errors.gst)}
                 helperText={formik.touched.gst && formik.errors.gst}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PinDrop color="action" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
           </Grid>
@@ -268,6 +283,22 @@ const StationForm = ({ open, onClose }) => {
         >
           Save Station
         </Button>
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <MuiAlert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            severity={snackbar.severity}
+            sx={{ width: '100%' }}
+            elevation={6}
+            variant="filled"
+          >
+            {snackbar.message}
+          </MuiAlert>
+        </Snackbar>
       </DialogActions>
     </Dialog>
   );

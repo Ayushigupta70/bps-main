@@ -12,14 +12,25 @@ export const createStation = createAsyncThunk(
       const response = await axios.post(`${BASE_URL}/create`, data);
       return response.data.message;
     } catch (err) {
-      console.error("AXIOS ERROR:", err.response?.data); // <-- debug this
-      const message =
-        err.response?.data?.message || err.response?.data?.err || err.message;
-      return rejectWithValue(message);
+      console.error("AXIOS ERROR:", err.response?.data); // debug
 
+      // Check if backend returned field-level errors
+      let message = "Something went wrong";
+
+      if (err.response?.data?.errors) {
+        // Combine all field errors into one string
+        message = Object.values(err.response.data.errors).join(', ');
+      } else if (err.response?.data?.message) {
+        message = err.response.data.message;
+      } else if (err.message) {
+        message = err.message;
+      }
+
+      return rejectWithValue(message);
     }
   }
 );
+
 
 export const fetchStations = createAsyncThunk(
   'stations/fetchStations', async (_, thunkApi) => {
@@ -116,7 +127,10 @@ const stationSlice = createSlice({
     },
     clearViewedStation: (state) => {
       state.viewedStation = null;
-    }
+    },
+    clearError: (state) => {
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -201,6 +215,6 @@ const stationSlice = createSlice({
 });
 
 
-export const { setFormField, resetForm, addStation, setStations, clearViewedStation } = stationSlice.actions;
+export const { setFormField, resetForm, addStation, setStations, clearViewedStation, clearError } = stationSlice.actions;
 
 export default stationSlice.reducer;

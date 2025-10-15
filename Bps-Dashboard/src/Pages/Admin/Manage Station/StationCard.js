@@ -35,7 +35,7 @@ import { ReactComponent as CustomCarIcon } from '../../../assets/station/car.svg
 import StationForm from '../Manage Station/Form/StationForm';
 
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchStations, deleteStation, searchStationByName } from '../../../features/stations/stationSlice';
+import { fetchStations, deleteStation, searchStationByName, clearError } from '../../../features/stations/stationSlice';
 import { useNavigate } from 'react-router-dom';
 
 const StationCard = () => {
@@ -82,6 +82,7 @@ const StationCard = () => {
     }
   }
   const handleAdd = () => {
+    dispatch(clearError());
     setCurrentStation(null);
     setIsEditing(false);
     setShowForm(true);
