@@ -26,6 +26,9 @@ import {
   DialogContent,
   DialogActions,
   Checkbox,
+  CircularProgress,
+  Alert,
+  Snackbar
 } from "@mui/material";
 import {
   CancelScheduleSend as CancelScheduleSendIcon,
@@ -36,27 +39,29 @@ import {
   Book as BookOnlineIcon,
   LocalShipping as LocalShippingIcon,
   Visibility as VisibilityIcon,
-
 } from "@mui/icons-material";
 import AddIcon from "@mui/icons-material/Add";
 import { useDispatch, useSelector } from 'react-redux';
-import { bookingRequestCount, activeBookingCount, cancelledBookingCount, fetchBookingsByType, cancelBooking, deleteBooking, revenueList, sendWhatsAppMsg, sendEmail, viewBookingById, clearViewedBooking } from '../../../features/booking/bookingSlice'
+import {
+  bookingRequestCount,
+  activeBookingCount,
+  cancelledBookingCount,
+  fetchBookingsByType,
+  cancelBooking,
+  deleteBooking,
+  revenueList,
+  sendWhatsAppMsg,
+  sendEmail,
+  viewBookingById,
+  clearViewedBooking
+} from '../../../features/booking/bookingSlice'
 import SendIcon from '@mui/icons-material/Send';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import SlipModal from "../../../Components/SlipModal";
 import { finalizeDelivery } from '../../../features/delivery/deliverySlice';
-const createData = (id, orderby, date, namep, pickup, named, drop, contact) => ({
-  id,
-  orderby,
-  date,
-  namep,
-  pickup,
-  named,
-  drop,
-  contact,
-});
+import Swal from 'sweetalert2';
 
-
+// Sorting utilities
 function descendingComparator(a, b, orderBy) {
   if (b[orderBy] < a[orderBy]) return -1;
   if (b[orderBy] > a[orderBy]) return 1;
@@ -70,6 +75,7 @@ function getComparator(order, orderBy) {
 }
 
 function stableSort(array, comparator) {
+  if (!array || !Array.isArray(array)) return [];
   const stabilized = array.map((el, index) => [el, index]);
   stabilized.sort((a, b) => {
     const order = comparator(a[0], b[0]);
@@ -101,6 +107,44 @@ const revenueHeadCells = [
   { id: "action", label: "Action", sortable: false },
 ];
 
+// SweetAlert configurations
+const showSuccess = (msg) =>
+  Swal.fire({
+    icon: 'success',
+    title: '🎉 Success!',
+    text: msg,
+    background: 'linear-gradient(135deg, #e0ffe0, #f0fff0)',
+    color: '#222',
+    showConfirmButton: false,
+    timer: 2000,
+    width: 400,
+  });
+
+const showError = (msg) =>
+  Swal.fire({
+    icon: 'error',
+    title: '⚠️ Error!',
+    text: msg,
+    background: 'linear-gradient(135deg, #ffe6e6, #fff0f0)',
+    confirmButtonColor: '#d33',
+    width: 400,
+  });
+
+const showConfirm = async (title, text) => {
+  const result = await Swal.fire({
+    title,
+    text,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Yes, delete it!',
+    cancelButtonText: 'Cancel',
+    width: 450,
+  });
+  return result.isConfirmed;
+};
+
 const BookingCard = () => {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -116,10 +160,24 @@ const BookingCard = () => {
   const [bookings, setBookings] = useState([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [bookingToDelete, setBookingToDelete] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
   const dispatch = useDispatch();
-  const { list: bookingList, revenueList: revenueData = [], requestCount, activeDeliveriesCount, cancelledDeliveriesCount, totalRevenue } = useSelector(state => state.bookings);
+  const {
+    list: bookingList,
+    revenueList: revenueData = [],
+    requestCount,
+    activeDeliveriesCount,
+    cancelledDeliveriesCount,
+    totalRevenue,
+    loading,
+    error,
+    message
+  } = useSelector(state => state.bookings);
+
   const openSlip = useSelector((state) => state.bookings.viewedBooking !== null);
   const booking = useSelector((state) => state.bookings.viewedBooking);
+
   useEffect(() => {
     if (bookingList && Array.isArray(bookingList)) {
       setBookings(bookingList);
@@ -132,7 +190,8 @@ const BookingCard = () => {
     dispatch(activeBookingCount());
     dispatch(cancelledBookingCount());
     dispatch(revenueList());
-  }, [dispatch])
+  }, [dispatch]);
+
   useEffect(() => {
     switch (selectedList) {
       case "request":
@@ -151,6 +210,17 @@ const BookingCard = () => {
         break;
     }
   }, [selectedList, dispatch]);
+
+  // Show messages from Redux state
+  useEffect(() => {
+    if (message) {
+      showSuccess(message);
+    }
+    if (error) {
+      showError(error);
+    }
+  }, [message, error]);
+
   const handleAdd = () => {
     navigate("/booking/new");
   };
@@ -169,10 +239,18 @@ const BookingCard = () => {
     }
   };
 
-  const handleShare = (bookingId) => {
-    dispatch(sendWhatsAppMsg(bookingId));
-    dispatch(sendEmail(bookingId));
-  }
+  const handleShare = async (bookingId) => {
+    try {
+      await Promise.all([
+        dispatch(sendWhatsAppMsg(bookingId)),
+        dispatch(sendEmail(bookingId))
+      ]);
+      showSuccess('Booking details shared successfully!');
+    } catch (error) {
+      showError('Failed to share booking details');
+    }
+  };
+
   const handleRequestSort = (property) => {
     const isAsc = orderBy === property && order === "asc";
     setOrder(isAsc ? "desc" : "asc");
@@ -192,7 +270,6 @@ const BookingCard = () => {
   };
 
   const handleView = (bookingId) => {
-    console.log("Navigating to booking ID:", bookingId);
     navigate(`/booking/${bookingId}`);
   };
 
@@ -204,21 +281,44 @@ const BookingCard = () => {
     setBookingToDelete(bookingId);
     setDeleteDialogOpen(true);
   };
-  const handleCancel = (bookingId) => {
-    dispatch(cancelBooking(bookingId))
-    window.location.reload();
-  }
 
-  const handleDeleteConfirm = () => {
-    dispatch(deleteBooking(bookingToDelete));
-    setDeleteDialogOpen(false);
-    setBookingToDelete(null);
+  const handleCancel = async (bookingId) => {
+    const confirmed = await showConfirm(
+      'Cancel Booking',
+      'Are you sure you want to cancel this booking?'
+    );
+
+    if (confirmed) {
+      try {
+        await dispatch(cancelBooking(bookingId)).unwrap();
+        showSuccess('Booking cancelled successfully!');
+        // Refresh the current list
+        dispatch(fetchBookingsByType(selectedList));
+      } catch (error) {
+        showError('Failed to cancel booking');
+      }
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      await dispatch(deleteBooking(bookingToDelete)).unwrap();
+      showSuccess('Booking moved to recycle bin successfully!');
+      // Refresh the current list
+      dispatch(fetchBookingsByType(selectedList));
+    } catch (error) {
+      showError('Failed to delete booking');
+    } finally {
+      setDeleteDialogOpen(false);
+      setBookingToDelete(null);
+    }
   };
 
   const handleDeleteCancel = () => {
     setDeleteDialogOpen(false);
     setBookingToDelete(null);
   };
+
   const handleSlipClick = (bookingId) => {
     dispatch(viewBookingById(bookingId));
   };
@@ -226,21 +326,25 @@ const BookingCard = () => {
   const handleCloseSlip = () => {
     dispatch(clearViewedBooking());
   };
-  const handleActiveChange = (orderId, isActive) => {
+
+  const handleActiveChange = async (orderId, isActive) => {
     if (isActive) {
-      if (window.confirm("Are you sure you want to finalize this delivery?")) {
-        dispatch(finalizeDelivery(orderId))
-          .unwrap()
-          .then(() => {
-            alert("Delivery finalized successfully!");
-            dispatch(fetchBookingsByType('active'));
-          })
-          .catch((error) => {
-            alert(`Failed to finalize delivery: ${error}`);
-          });
+      const confirmed = await showConfirm(
+        'Finalize Delivery',
+        'Are you sure you want to finalize this delivery? This action cannot be undone.'
+      );
+
+      if (confirmed) {
+        try {
+          await dispatch(finalizeDelivery(orderId)).unwrap();
+          showSuccess('Delivery finalized successfully!');
+          dispatch(fetchBookingsByType('active'));
+        } catch (error) {
+          showError(`Failed to finalize delivery: ${error}`);
+        }
       }
     } else {
-      alert("You cannot unfinalize a delivery once completed.");
+      showError("You cannot unfinalize a delivery once completed.");
     }
   };
 
@@ -272,7 +376,7 @@ const BookingCard = () => {
       title: "Booking",
       value: requestCount,
       subtitle: "Requests",
-      duration: "0% (30 Days)",
+      duration: "Last 30 Days",
       type: "request",
       icon: <BookOnlineIcon fontSize="large" />,
     },
@@ -281,7 +385,7 @@ const BookingCard = () => {
       title: "Active ",
       value: activeDeliveriesCount,
       subtitle: "Deliveries",
-      duration: "100% (30 Days)",
+      duration: "Last 30 Days",
       type: "active",
       icon: <LocalShippingIcon fontSize="large" />,
     },
@@ -289,7 +393,7 @@ const BookingCard = () => {
       id: 3,
       title: "Total Cancelled",
       value: cancelledDeliveriesCount,
-      duration: "0% (30 Days)",
+      duration: "Last 30 Days",
       type: "cancelled",
       icon: <CancelScheduleSendIcon fontSize="large" />,
     },
@@ -297,7 +401,7 @@ const BookingCard = () => {
       id: 4,
       value: totalRevenue,
       subtitle: "Total Revenue",
-      duration: "100% (30 Days)",
+      duration: "Last 30 Days",
       title: "Revenue",
       icon: <AccountBalanceWalletIcon fontSize="large" />,
       type: "revenue"
@@ -305,7 +409,7 @@ const BookingCard = () => {
   ];
 
   const emptyRows = Math.max(0, (1 + page) * rowsPerPage - filteredRows.length);
-  console.log("data", bookingList);
+
   return (
     <Box sx={{ p: 2 }}>
       <Box
@@ -412,6 +516,13 @@ const BookingCard = () => {
         ))}
       </Grid>
 
+      {/* Loading State */}
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      )}
+
       {/* Admin Table */}
       <Box>
         <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
@@ -465,7 +576,7 @@ const BookingCard = () => {
               {stableSort(filteredRows, getComparator(order, orderBy))
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((row, index) => (
-                  <TableRow key={row.bookingId} hover>
+                  <TableRow key={row.bookingId || row._id} hover>
                     {isRevenueCardActive ? (
                       <>
                         <TableCell>{page * rowsPerPage + index + 1}</TableCell>
@@ -527,9 +638,9 @@ const BookingCard = () => {
                             </IconButton>
                             <IconButton
                               size="small"
-                              color="primary"
+                              color="warning"
                               onClick={() => handleCancel(row.bookingId)}
-                              title="CancelScheduleSend"
+                              title="Cancel"
                             >
                               <CancelScheduleSendIcon fontSize="small" />
                             </IconButton>
@@ -543,8 +654,8 @@ const BookingCard = () => {
                             </IconButton>
                             <IconButton
                               size="small"
-                              color="primary"
-                              title="share"
+                              color="success"
+                              title="Share"
                               onClick={() => handleShare(row.bookingId)}
                             >
                               <SendIcon fontSize="small" />
@@ -558,11 +669,6 @@ const BookingCard = () => {
                               <ReceiptIcon fontSize="small" />
                             </IconButton>
                           </Box>
-                          <SlipModal
-                            open={openSlip}
-                            handleClose={handleCloseSlip}
-                            bookingData={booking}
-                          />
                         </TableCell>
                       </>
                     )}
@@ -571,6 +677,15 @@ const BookingCard = () => {
               {emptyRows > 0 && (
                 <TableRow style={{ height: 53 * emptyRows }}>
                   <TableCell colSpan={displayHeadCells.length} />
+                </TableRow>
+              )}
+              {filteredRows.length === 0 && !loading && (
+                <TableRow>
+                  <TableCell colSpan={displayHeadCells.length} align="center" sx={{ py: 4 }}>
+                    <Typography variant="body1" color="text.secondary">
+                      No bookings found
+                    </Typography>
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -587,16 +702,26 @@ const BookingCard = () => {
         </TableContainer>
       </Box>
 
+      {/* Slip Modal */}
+      <SlipModal
+        open={openSlip}
+        handleClose={handleCloseSlip}
+        bookingData={booking}
+      />
+
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel}>
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
-          Are you sure you want to delete booking {bookingToDelete}?
+          Are you sure you want to move this booking to recycle bin?
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            (This is a soft delete and can be restored later)
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDeleteCancel}>Cancel</Button>
           <Button onClick={handleDeleteConfirm} color="error" variant="contained">
-            Delete
+            Move to Recycle Bin
           </Button>
         </DialogActions>
       </Dialog>

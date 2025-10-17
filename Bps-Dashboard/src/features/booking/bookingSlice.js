@@ -307,6 +307,33 @@ export const fetchIncomingBookings = createAsyncThunk(
     }
   }
 );
+export const restoreBooking = createAsyncThunk(
+  "bin/restoreBooking",
+  async (bookingId, thunkApi) => {
+    try {
+      const res = await axios.patch(`${BASE_URL}/${bookingId}/restore`);
+      return res.data.booking; // full booking object
+    } catch (err) {
+      return thunkApi.rejectWithValue(
+        err.response?.data?.message || "Failed to restore booking"
+      );
+    }
+  }
+);
+export const listDeletedBookings = createAsyncThunk(
+  "bin/listDeletedBookings",
+  async (_, thunkApi) => {
+    try {
+      const res = await axios.get(`${BASE_URL}/bin/list`);
+      return res.data.bookings; // array of bookings
+    } catch (err) {
+      return thunkApi.rejectWithValue(
+        err.response?.data?.message || "Failed to fetch deleted bookings"
+      );
+    }
+  }
+);
+
 
 const initialState = {
   list: [],
@@ -314,7 +341,7 @@ const initialState = {
   list3: [],
   list4: [],
   list5: [],
-  incomingList: [], 
+  incomingList: [],
   requestCount: 0,
   activeDeliveriesCount: 0,
   cancelledDeliveriesCount: 0,
@@ -414,7 +441,10 @@ const bookingSlice = createSlice({
       //for deleting
       .addCase(deleteBooking.fulfilled, (state, action) => {
         state.loading = false;
-        state.list = state.list.filter(booking => booking.bookingId !== action.payload);
+        // Remove from all lists
+        state.list = state.list.filter(booking => booking.bookingId !== action.payload && booking._id !== action.payload);
+        // Show success message
+        state.message = "Booking moved to recycle bin successfully";
       })
       //fetching list 
       .addCase(fetchBookingsByType.pending, (state) => {
@@ -651,6 +681,33 @@ const bookingSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+      .addCase(restoreBooking.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(restoreBooking.fulfilled, (state, action) => {
+        state.loading = false;
+        state.deletedBookings = state.deletedBookings.filter(
+          (b) => b._id !== action.payload._id
+        );
+        state.message = "Booking restored successfully!";
+      })
+      .addCase(restoreBooking.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(listDeletedBookings.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(listDeletedBookings.fulfilled, (state, action) => {
+        state.loading = false;
+        state.deletedBookings = action.payload;
+      })
+      .addCase(listDeletedBookings.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
   }
 });
 
