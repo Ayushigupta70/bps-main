@@ -31,7 +31,7 @@ const BookingForm = () => {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
 
-  
+
   const handleSearch = () => {
     if (!startDate || !endDate) {
       alert("Please select both start and end dates");
@@ -145,21 +145,23 @@ const BookingForm = () => {
                 <TableCell>{row.toCity}</TableCell>
                 <TableCell>{row.mobile}</TableCell>
                 <TableCell>
-                  <IconButton color="primary">
-                    <VisibilityIcon />
-                  </IconButton>
-                  <IconButton color="primary">
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton color="error">
-                    <DeleteIcon />
-                  </IconButton>
-                  <IconButton color="primary">
-                    <SendIcon />
-                  </IconButton>
-                  <IconButton color="secondary">
-                    <ReceiptIcon />
-                  </IconButton>
+                  <Stack direction={'row'}>
+                    <IconButton color="primary">
+                      <VisibilityIcon />
+                    </IconButton>
+                    <IconButton color="primary">
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton color="error">
+                      <DeleteIcon />
+                    </IconButton>
+                    <IconButton color="primary">
+                      <SendIcon />
+                    </IconButton>
+                    <IconButton color="secondary">
+                      <ReceiptIcon />
+                    </IconButton>
+                  </Stack>
                 </TableCell>
               </TableRow>
             ))}
