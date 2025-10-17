@@ -15,7 +15,10 @@ import {
   Card,
   CardContent,
   Divider,
-  FormHelperText
+  FormHelperText,
+  Snackbar,
+  Alert
+
 } from '@mui/material';
 import { CloudUpload } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
@@ -26,7 +29,11 @@ const CustomerForm = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { states, cities } = useSelector((state) => state.location);
-
+  const [snackbar, setSnackbar] = React.useState({
+    open: false,
+    message: '',
+    severity: 'error'  // or 'success', 'info', etc.
+  });
   // Validation Schema
   const validationSchema = Yup.object().shape({
     firstName: Yup.string().required('First Name is required'),
@@ -75,11 +82,22 @@ const CustomerForm = () => {
     onSubmit: async (values) => {
       try {
         await dispatch(createCustomer(values)).unwrap();
+
+        // Show browser alert
+        alert("Customer registered successfully!");
+
         formik.resetForm();
-        navigate('/customer')
+        navigate('/customer');
       }
       catch (error) {
-        console.log("Error while adding customer", error);
+        console.error("Error while adding customer", error);
+        const errMsg = error?.message || "Something went wrong while adding the customer.";
+
+        setSnackbar({
+          open: true,
+          message: errMsg,
+          severity: 'error'
+        });
       }
     }
   });
@@ -444,6 +462,22 @@ const CustomerForm = () => {
               >
                 Submit Registration
               </Button>
+              <Snackbar
+                open={snackbar.open}
+                autoHideDuration={6000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+              >
+                <Alert
+                  onClose={() => setSnackbar({ ...snackbar, open: false })}
+                  severity={snackbar.severity}
+                  sx={{ width: '100%' }}
+                  elevation={6}
+                  variant="filled"
+                >
+                  {snackbar.message}
+                </Alert>
+              </Snackbar>
             </Grid>
           </Grid>
         </form>

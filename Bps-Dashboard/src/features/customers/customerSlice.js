@@ -16,17 +16,19 @@ export const createCustomer = createAsyncThunk(
       }
 
       const response = await axios.post(`${BASE_URL}/create`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
 
       return response.data.message;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || err.message);
+      // ✅ Extract backend message clearly
+      const backendMsg = err.response?.data?.message;
+      const fallbackMsg = err.message || "Something went wrong while creating customer.";
+      return rejectWithValue({ message: backendMsg || fallbackMsg });
     }
   }
 );
+
 
 export const fetchActiveCustomer = createAsyncThunk(
   'customers/fetchActiveCustomer',
@@ -160,7 +162,7 @@ const initialState = {
     pincode: '',
     gstNumber: '',
     idProof: '',
-    stateCode:'',
+    stateCode: '',
     idPhoto: null,
     customerPhoto: null
   },
@@ -277,7 +279,7 @@ const customerSlice = createSlice({
           pincode: payload.pincode || '',
           gstNumber: payload.gstNumber || '',
           idProof: payload.idProof || '',
-          stateCode:payload.stateCode || '',
+          stateCode: payload.stateCode || '',
           idPhoto: payload.idProofPhoto
             ? `${FILES_BASE_URL}/${payload.idProofPhoto.replace(/\\/g, '/').replace(/^\/+/g, '')}`
             : null,
