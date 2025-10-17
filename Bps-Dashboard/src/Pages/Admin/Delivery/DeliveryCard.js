@@ -16,9 +16,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom'
 import { fetchBookingsByType } from '../../../features/booking/bookingSlice';
 import { fetchBookingRequest as fetchQuotationRequest } from '../../../features/quotation/quotationSlice';
-import { fetchavailableList } from '../../../features/Driver/driverSlice';
-import { getAvailableVehiclesList } from '../../../features/vehicle/vehicleSlice';
-import { assignDeliveries, finalDeliveryList, finalDeliveryWhatsApp, finalDeliveryMail } from '../../../features/delivery/deliverySlice';
+
+import { assignDeliveries, finalDeliveryList, finalDeliveryWhatsApp, finalDeliveryMail, VehicleAvailabile, driverAvailabile } from '../../../features/delivery/deliverySlice';
 import SendIcon from '@mui/icons-material/Send';
 
 const DeliveryCard = () => {
