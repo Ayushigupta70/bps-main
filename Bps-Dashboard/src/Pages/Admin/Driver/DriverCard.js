@@ -89,6 +89,29 @@ const headCells = [
     { id: 'action', label: 'Action', sortable: false },
 ];
 
+// Utility function to remove duplicates by driverId
+const removeDuplicates = (drivers) => {
+    if (!drivers || !Array.isArray(drivers)) return [];
+
+    const seen = new Set();
+    return drivers.filter(driver => {
+        if (!driver || !driver.driverId) return false;
+        if (seen.has(driver.driverId)) {
+            return false;
+        }
+        seen.add(driver.driverId);
+        return true;
+    });
+};
+
+// Utility function to validate driver data
+const isValidDriver = (driver) => {
+    return driver &&
+        driver.driverId &&
+        typeof driver.driverId === 'string' &&
+        driver.driverId.trim() !== '';
+};
+
 const DriverCard = () => {
     const theme = useTheme();
     const navigate = useNavigate();
@@ -114,35 +137,51 @@ const DriverCard = () => {
     const [selectedList, setSelectedList] = useState('total');
     const [menuAnchorEl, setMenuAnchorEl] = useState(null);
     const [selectedDriver, setSelectedDriver] = useState(null);
-    const [localDriverList, setLocalDriverList] = useState([]);
+    const [statusLoading, setStatusLoading] = useState(false);
+
+    // Separate local lists for each type with duplicate removal
+    const [localLists, setLocalLists] = useState({
+        total: [],
+        available: [],
+        blacklisted: [],
+        deactivated: []
+    });
 
     // Colors
     const cardColor = '#0155a5';
     const cardLightColor = '#e6f0fa';
 
-    // Initialize local state with driverList
-    useEffect(() => {
-        if (driverList && driverList.length > 0) {
-            setLocalDriverList(driverList);
-        }
-    }, [driverList]);
-
     // SweetAlert configurations
     const showSuccess = (msg) =>
         Swal.fire({
             icon: 'success',
-            title: 'Success!',
+            title: '🎉 Success!',
             text: msg,
+            background: 'linear-gradient(135deg, #e0ffe0, #f0fff0)',
+            color: '#222',
+            showConfirmButton: false,
             timer: 2000,
-            showConfirmButton: false
+            width: 400,
         });
 
     const showError = (msg) =>
         Swal.fire({
             icon: 'error',
-            title: 'Error!',
+            title: '⚠️ Error!',
             text: msg,
-            confirmButtonColor: '#d33'
+            background: 'linear-gradient(135deg, #ffe6e6, #fff0f0)',
+            confirmButtonColor: '#d33',
+            width: 400,
+        });
+
+    const showInfo = (msg) =>
+        Swal.fire({
+            icon: 'info',
+            title: 'ℹ️ Info',
+            text: msg,
+            background: 'linear-gradient(135deg, #e0f7fa, #e1f5fe)',
+            confirmButtonColor: '#0288d1',
+            width: 400,
         });
 
     const showConfirm = async (title, text) => {
@@ -154,9 +193,26 @@ const DriverCard = () => {
             confirmButtonColor: '#3085d6',
             cancelButtonColor: '#d33',
             confirmButtonText: 'Yes, proceed!',
-            cancelButtonText: 'Cancel'
+            cancelButtonText: 'Cancel',
+            width: 450,
         });
         return result.isConfirmed;
+    };
+
+    // Process and clean driver list
+    const processDriverList = (drivers) => {
+        if (!drivers || !Array.isArray(drivers)) return [];
+
+        // Filter out invalid drivers and remove duplicates
+        const validDrivers = drivers.filter(isValidDriver);
+        const uniqueDrivers = removeDuplicates(validDrivers);
+
+        // Log if duplicates were found (for debugging)
+        if (validDrivers.length !== uniqueDrivers.length) {
+            console.warn(`Removed ${validDrivers.length - uniqueDrivers.length} duplicate drivers`);
+        }
+
+        return uniqueDrivers;
     };
 
     // Initial data loading
@@ -172,15 +228,39 @@ const DriverCard = () => {
                 ]);
             } catch (error) {
                 console.error('Error loading initial data:', error);
+                showError('Failed to load initial data');
             }
         };
         loadInitialData();
     }, [dispatch]);
 
+    // Update local lists when Redux state changes - with duplicate removal
+    useEffect(() => {
+        if (driverList && driverList.length > 0) {
+            const processedList = processDriverList(driverList);
+            setLocalLists(prev => ({
+                ...prev,
+                [selectedList]: processedList
+            }));
+        } else {
+            // Clear the list if no data
+            setLocalLists(prev => ({
+                ...prev,
+                [selectedList]: []
+            }));
+        }
+    }, [driverList, selectedList]);
+
     // Load specific list when selection changes
     useEffect(() => {
         const loadSelectedList = async () => {
             try {
+                // Clear current display while loading
+                setLocalLists(prev => ({
+                    ...prev,
+                    [selectedList]: []
+                }));
+
                 switch (selectedList) {
                     case 'total':
                         await dispatch(fetchtotalList());
@@ -199,10 +279,50 @@ const DriverCard = () => {
                 }
             } catch (error) {
                 console.error('Error loading list:', error);
+                showError(`Failed to load ${selectedList} drivers`);
             }
         };
+
         loadSelectedList();
     }, [selectedList, dispatch]);
+
+    // Refresh all counts
+    const refreshAllCounts = async () => {
+        try {
+            await Promise.all([
+                dispatch(fetchtotalCount()),
+                dispatch(fetchavailableCount()),
+                dispatch(fetchblacklistedCount()),
+                dispatch(fetchdeactivatedCount())
+            ]);
+        } catch (error) {
+            console.error('Error refreshing counts:', error);
+        }
+    };
+
+    // Refresh current list
+    const refreshCurrentList = async () => {
+        try {
+            switch (selectedList) {
+                case 'total':
+                    await dispatch(fetchtotalList());
+                    break;
+                case 'available':
+                    await dispatch(fetchavailableList());
+                    break;
+                case 'blacklisted':
+                    await dispatch(fetchblacklistedList());
+                    break;
+                case 'deactivated':
+                    await dispatch(fetchdeactivatedList());
+                    break;
+                default:
+                    break;
+            }
+        } catch (error) {
+            console.error('Error refreshing current list:', error);
+        }
+    };
 
     // Card data with real counts
     const cardData = [
@@ -255,6 +375,7 @@ const DriverCard = () => {
         setSelectedList(type);
         setActiveCard(id);
         setPage(0); // Reset to first page when changing lists
+        setSearchTerm(''); // Reset search when changing lists
     };
 
     const handleRequestSort = (property) => {
@@ -299,30 +420,8 @@ const DriverCard = () => {
                 const result = await dispatch(deleteDriver(driverId));
                 if (result.meta.requestStatus === 'fulfilled') {
                     showSuccess('Driver deleted successfully!');
-                    // Refresh all counts
-                    await Promise.all([
-                        dispatch(fetchtotalCount()),
-                        dispatch(fetchavailableCount()),
-                        dispatch(fetchblacklistedCount()),
-                        dispatch(fetchdeactivatedCount())
-                    ]);
-                    // Refresh current list
-                    switch (selectedList) {
-                        case 'total':
-                            dispatch(fetchtotalList());
-                            break;
-                        case 'available':
-                            dispatch(fetchavailableList());
-                            break;
-                        case 'blacklisted':
-                            dispatch(fetchblacklistedList());
-                            break;
-                        case 'deactivated':
-                            dispatch(fetchdeactivatedList());
-                            break;
-                        default:
-                            break;
-                    }
+                    await refreshAllCounts();
+                    await refreshCurrentList();
                 } else {
                     showError('Failed to delete driver. Please try again.');
                 }
@@ -338,6 +437,8 @@ const DriverCard = () => {
             return;
         }
 
+        // Check if trying to set the same status
+        const currentStatus = selectedDriver.status;
         const statusMap = {
             'Active': 'available',
             'Inactive': 'deactive',
@@ -345,72 +446,79 @@ const DriverCard = () => {
         };
 
         const newStatus = statusMap[statusLabel];
+
+        if (currentStatus === newStatus) {
+            showInfo(`Driver is already ${statusLabel.toLowerCase()}`);
+            handleMenuClose();
+            return;
+        }
+
         const confirmed = await showConfirm(
             'Change Status',
             `Are you sure you want to change driver status to ${statusLabel}?`
         );
 
-        if (confirmed) {
-            try {
-                const result = await dispatch(updateStatus({
-                    driverId: selectedDriver.driverId,
-                    status: newStatus
-                }));
+        if (!confirmed) {
+            handleMenuClose();
+            return;
+        }
 
-                if (result.meta.requestStatus === 'fulfilled') {
-                    showSuccess(`Driver status changed to ${statusLabel} successfully!`);
+        setStatusLoading(true);
+        try {
+            const result = await dispatch(updateStatus({
+                driverId: selectedDriver.driverId,
+                status: newStatus
+            }));
 
-                    // Update local state immediately for better UX
-                    const updatedList = localDriverList.map(driver =>
-                        driver.driverId === selectedDriver.driverId
-                            ? { ...driver, status: newStatus }
-                            : driver
-                    );
-                    setLocalDriverList(updatedList);
+            if (result.meta.requestStatus === 'fulfilled') {
+                showSuccess(`Driver status changed to ${statusLabel} successfully!`);
 
-                    // Refresh all counts
-                    await Promise.all([
-                        dispatch(fetchtotalCount()),
-                        dispatch(fetchavailableCount()),
-                        dispatch(fetchblacklistedCount()),
-                        dispatch(fetchdeactivatedCount())
-                    ]);
-
-                    // If the driver's new status doesn't match current filter, refresh the list
-                    if (selectedList !== newStatus && selectedList !== 'total') {
-                        switch (selectedList) {
-                            case 'available':
-                                dispatch(fetchavailableList());
-                                break;
-                            case 'blacklisted':
-                                dispatch(fetchblacklistedList());
-                                break;
-                            case 'deactivated':
-                                dispatch(fetchdeactivatedList());
-                                break;
-                            default:
-                                break;
-                        }
+                // Update local state immediately for better UX
+                setLocalLists(prev => {
+                    const updatedLists = { ...prev };
+                    // Remove driver from current list if status doesn't match
+                    if (selectedList !== 'total' && selectedList !== newStatus) {
+                        updatedLists[selectedList] = updatedLists[selectedList].filter(
+                            driver => driver.driverId !== selectedDriver.driverId
+                        );
                     }
+                    return updatedLists;
+                });
 
-                } else {
-                    showError('Failed to update status. Please try again.');
+                // Refresh all counts
+                await refreshAllCounts();
+
+                // Refresh current list if driver should still be in it
+                if (selectedList === 'total' || selectedList === newStatus) {
+                    await refreshCurrentList();
                 }
-            } catch (error) {
-                showError('Error updating driver status. Please try again.');
-            } finally {
-                handleMenuClose();
+
+            } else {
+                showError('Failed to update status. Please try again.');
             }
+        } catch (error) {
+            console.error('Status update error:', error);
+            showError('Error updating driver status. Please try again.');
+        } finally {
+            setStatusLoading(false);
+            handleMenuClose();
         }
     };
 
-    // Filter and sort data - use localDriverList instead of driverList for immediate updates
-    const filteredRows = Array.isArray(localDriverList) ? localDriverList.filter((row) => {
+    // Get current list based on selection
+    const getCurrentList = () => {
+        return localLists[selectedList] || [];
+    };
+
+    // Filter and sort current list
+    const currentList = getCurrentList();
+    const filteredRows = Array.isArray(currentList) ? currentList.filter((row) => {
         const searchLower = searchTerm.toLowerCase();
+        const name = row.name || `${row.firstName || ''} ${row.lastName || ''}`.trim();
+
         return (
             (row.driverId && row.driverId.toLowerCase().includes(searchLower)) ||
-            (row.name && row.name.toLowerCase().includes(searchLower)) ||
-            (row.firstName && `${row.firstName} ${row.lastName || ''}`.toLowerCase().includes(searchLower)) ||
+            (name && name.toLowerCase().includes(searchLower)) ||
             (row.contactNumber && row.contactNumber.includes(searchTerm))
         );
     }) : [];
@@ -430,6 +538,73 @@ const DriverCard = () => {
                 return { color: 'error', label: 'Blacklisted' };
             default:
                 return { color: 'default', label: status };
+        }
+    };
+
+    // Check if menu item should be disabled based on current list and driver status
+    const isStatusDisabled = (statusLabel) => {
+        if (!selectedDriver) return false;
+
+        const statusMap = {
+            'Active': 'available',
+            'Inactive': 'deactive',
+            'Blacklisted': 'blacklist'
+        };
+
+        const newStatus = statusMap[statusLabel];
+        const currentStatus = selectedDriver.status;
+
+        // Disable if it's the current status
+        if (currentStatus === newStatus) return true;
+
+        // Disable specific status changes based on current list
+        switch (selectedList) {
+            case 'available':
+                // In available list, only allow deactivate and blacklist (disable activate)
+                return statusLabel === 'Active';
+            case 'deactivated':
+                // In deactivated list, only allow activate and blacklist (disable inactive)
+                return statusLabel === 'Inactive';
+            case 'blacklisted':
+                // In blacklisted list, only allow activate and deactivate (disable blacklist)
+                return statusLabel === 'Blacklisted';
+            default:
+                return false;
+        }
+    };
+
+    // Get available status options based on current list
+    const getAvailableStatusOptions = () => {
+        if (!selectedDriver) return ['Active', 'Inactive', 'Blacklisted'];
+
+        switch (selectedList) {
+            case 'available':
+                return ['Inactive', 'Blacklisted']; // Only show deactivate and blacklist options
+            case 'deactivated':
+                return ['Active', 'Blacklisted']; // Only show activate and blacklist options
+            case 'blacklisted':
+                return ['Active', 'Inactive']; // Only show activate and deactivate options
+            default:
+                return ['Active', 'Inactive', 'Blacklisted'];
+        }
+    };
+
+    // Show empty state message
+    const getEmptyStateMessage = () => {
+        if (loading) return "Loading...";
+        if (searchTerm && filteredRows.length === 0) return "No drivers match your search";
+
+        switch (selectedList) {
+            case 'available':
+                return "No available drivers found";
+            case 'blacklisted':
+                return "No blacklisted drivers found";
+            case 'deactivated':
+                return "No deactivated drivers found";
+            case 'total':
+                return "No drivers found";
+            default:
+                return "No drivers found";
         }
     };
 
@@ -472,7 +647,8 @@ const DriverCard = () => {
                                     transform: 'translateY(-8px)',
                                     boxShadow: 6,
                                 },
-                                height: '100%'
+                                height: '190px',
+                                width: "220px",
                             }}
                         >
                             <CardContent>
@@ -521,6 +697,7 @@ const DriverCard = () => {
                         {selectedList === 'total' && 'All Drivers'}
                         {selectedList === 'blacklisted' && 'Blacklisted Drivers'}
                         {selectedList === 'deactivated' && 'Deactivated Drivers'}
+                        {` (${currentList.length})`}
                     </Typography>
                     <TextField
                         variant="outlined"
@@ -570,8 +747,10 @@ const DriverCard = () => {
                             <TableBody>
                                 {paginatedRows.map((row, index) => {
                                     const statusProps = getStatusProps(row.status);
+                                    const name = row.name || `${row.firstName || ''} ${row.lastName || ''}`.trim();
+
                                     return (
-                                        <TableRow key={row.driverId || index} hover>
+                                        <TableRow key={`${row.driverId}-${index}`} hover>
                                             <TableCell>{page * rowsPerPage + index + 1}</TableCell>
                                             <TableCell>
                                                 <Typography variant="body2" fontWeight="medium">
@@ -580,7 +759,7 @@ const DriverCard = () => {
                                             </TableCell>
                                             <TableCell>
                                                 <Typography variant="body2">
-                                                    {row.name || `${row.firstName || ''} ${row.lastName || ''}`.trim()}
+                                                    {name}
                                                 </Typography>
                                             </TableCell>
                                             <TableCell>{row.contactNumber}</TableCell>
@@ -623,6 +802,7 @@ const DriverCard = () => {
                                                         color="default"
                                                         onClick={(e) => handleMenuOpen(e, row)}
                                                         title="Change Status"
+                                                        disabled={statusLoading}
                                                     >
                                                         <MoreVertIcon fontSize="small" />
                                                     </IconButton>
@@ -640,7 +820,7 @@ const DriverCard = () => {
                                     <TableRow>
                                         <TableCell colSpan={headCells.length} align="center" sx={{ py: 4 }}>
                                             <Typography variant="body1" color="text.secondary">
-                                                No drivers found
+                                                {getEmptyStateMessage()}
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
@@ -672,25 +852,52 @@ const DriverCard = () => {
                     sx: { borderRadius: 2, minWidth: 180 }
                 }}
             >
-                <MenuItem onClick={() => handleStatusChange('Active')}>
-                    <ListItemIcon>
-                        <CheckCircleIcon sx={{ color: 'green' }} fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText primary="Active" />
-                </MenuItem>
-                <MenuItem onClick={() => handleStatusChange('Inactive')}>
-                    <ListItemIcon>
-                        <CancelIcon sx={{ color: 'orange' }} fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText primary="Inactive" />
-                </MenuItem>
-                <MenuItem onClick={() => handleStatusChange('Blacklisted')}>
-                    <ListItemIcon>
-                        <BlockIcon sx={{ color: 'red' }} fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText primary="Blacklisted" />
-                </MenuItem>
+                {getAvailableStatusOptions().map((statusOption) => (
+                    <MenuItem
+                        key={statusOption}
+                        onClick={() => handleStatusChange(statusOption)}
+                        disabled={isStatusDisabled(statusOption) || statusLoading}
+                    >
+                        <ListItemIcon>
+                            {statusOption === 'Active' && <CheckCircleIcon sx={{ color: 'green' }} fontSize="small" />}
+                            {statusOption === 'Inactive' && <CancelIcon sx={{ color: 'orange' }} fontSize="small" />}
+                            {statusOption === 'Blacklisted' && <BlockIcon sx={{ color: 'red' }} fontSize="small" />}
+                        </ListItemIcon>
+                        <ListItemText primary={statusOption} />
+                        {selectedDriver?.status ===
+                            (statusOption === 'Active' ? 'available' :
+                                statusOption === 'Inactive' ? 'deactive' : 'blacklist') &&
+                            <Chip label="Current" size="small" color="primary" sx={{ ml: 1 }} />
+                        }
+                    </MenuItem>
+                ))}
             </Menu>
+
+            {/* Status Loading Overlay */}
+            {statusLoading && (
+                <Box
+                    sx={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 9999,
+                    }}
+                >
+                    <Card sx={{ p: 4, textAlign: 'center' }}>
+                        <CircularProgress size={40} sx={{ mb: 2 }} />
+                        <Typography variant="h6">Updating Status...</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Please wait while we update the driver status
+                        </Typography>
+                    </Card>
+                </Box>
+            )}
         </Box>
     );
 };
