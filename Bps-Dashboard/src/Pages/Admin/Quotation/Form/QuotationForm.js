@@ -101,14 +101,21 @@ const QuotationForm = () => {
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Formik
         initialValues={initialValues}
+
         onSubmit={async (values, { resetForm, setSubmitting }) => {
           try {
             setSubmitting(true);
             await dispatch(createBooking(values)).unwrap();
+
+            // Show browser alert
+            alert("Quotation created successfully!");
+
             resetForm();
-            navigate('/quotation')
+            navigate('/quotation');
+
           } catch (error) {
             console.log("Error while adding booking", error);
+            alert("Failed to create quotation. Please try again.");
           } finally {
             setSubmitting(false);
           }

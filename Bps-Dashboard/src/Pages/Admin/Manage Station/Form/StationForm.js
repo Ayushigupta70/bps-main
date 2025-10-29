@@ -53,22 +53,27 @@ const StationForm = ({ open, onClose }) => {
         await dispatch(fetchStations());
         formik.resetForm();
         onClose();
+
+        // ✅ Show success Snackbar
+        setSnackbar({
+          open: true,
+          message: 'Station added successfully!',
+          severity: 'success',
+        });
+
       } catch (errorPayload) {
-        // errorPayload is the value from rejectWithValue
-        const message = typeof errorPayload === 'string'
-          ? errorPayload
-          : "Something went wrong";
+        const message =
+          typeof errorPayload === 'string'
+            ? errorPayload
+            : 'Something went wrong';
 
         setSnackbar({
           open: true,
           message,
-          severity: 'error'
+          severity: 'error',
         });
       }
     }
-
-
-
   });
 
   useEffect(() => {
@@ -285,7 +290,7 @@ const StationForm = ({ open, onClose }) => {
         </Button>
         <Snackbar
           open={snackbar.open}
-          autoHideDuration={6000}
+          autoHideDuration={4000}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
@@ -299,6 +304,7 @@ const StationForm = ({ open, onClose }) => {
             {snackbar.message}
           </MuiAlert>
         </Snackbar>
+
       </DialogActions>
     </Dialog>
   );

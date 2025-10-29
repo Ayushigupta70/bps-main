@@ -101,10 +101,16 @@ const VehicleForm = () => {
         onSubmit: async (values) => {
             try {
                 await dispatch(addVehicles(values)).unwrap();
+
+                // Show browser alert
+                alert("Vehicle added successfully!");
+
                 formik.resetForm();
                 navigate('/vehicle');
+
             } catch (error) {
                 console.log("Error while creating Vehicle", error);
+                alert("Failed to add vehicle. Please try again.");
             }
         }
 

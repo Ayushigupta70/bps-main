@@ -271,7 +271,7 @@ export default function SupervisorList() {
       title: "Supervisors",
       type: 'active',
       value: activeCounts,
-      subtitle: "Active supervisors",
+      subtitle: "Active   supervisors",
       duration: "Last 30 days",
       icon: <PeopleAltIcon fontSize="large" />,
       bgColor: "#e0f7fa"
@@ -323,7 +323,7 @@ export default function SupervisorList() {
       {/* 📊 Dashboard Count Cards */}
       <Grid container spacing={2} mb={3}>
         {cardData.map((card) => (
-          <Grid size={{ sx: 12, sm: 6, md: 3 }} key={card.id}>
+          <Grid size={{ xs: 6, sm: 6, md: 3 }} key={card.id}>
             <Card
               sx={{
                 background: card.bgColor,
@@ -334,7 +334,9 @@ export default function SupervisorList() {
                 '&:hover': {
                   transform: 'translateY(-5px)',
                   boxShadow: 6,
-                }
+                },
+                width: "180px",
+                height: "180px",
               }}
               onClick={() => handleCardClick(card.type)}
             >
