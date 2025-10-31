@@ -70,7 +70,7 @@ const initialValues = {
   billTotal: "",
 
   stax: "",
-
+  billty: "20",
   grandTotal: "",
   roundOff: "",
   finalTotal: "",
@@ -554,6 +554,15 @@ const QuotationForm = () => {
                     </Grid>
                     <Grid item xs={12} sm={3}>
                       <TextField
+                        name="billty"
+                        label="Billty"
+                        value={values.billty}
+                        InputProps={{ readOnly: true }}
+                        fullWidth
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={3}>
+                      <TextField
                         name="grandTotal"
                         label="Grand Total"
                         value={values.grandTotal}
@@ -724,9 +733,9 @@ const EffectSyncTotal = ({ values, setFieldValue }) => {
     // Calculate tax amount (assuming sTax is percentage)
     const taxPercentage = parseFloat(values.sTax) || 0;
     const taxAmount = totalAmount * (taxPercentage / 100);
-
+    const billty = (Number(values.billty || 0));
     // Calculate grand total before rounding
-    const grandTotal = totalAmount + taxAmount;
+    const grandTotal = totalAmount + taxAmount + billty;
 
     // Calculate rounded total and round-off
     const roundedTotal = Math.round(grandTotal);

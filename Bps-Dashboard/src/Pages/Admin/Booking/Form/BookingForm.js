@@ -46,7 +46,7 @@ const dummySetter = () => { };
 
 const generateInitialValues = () => {
   const receiptNo = generateUniqueId("RCPT-", dummySet, dummySetter);
-  const refNo = generateUniqueId("REF-", dummySet, dummySetter);
+  //const refNo = generateUniqueId("REF-", dummySet, dummySetter);
 
   return {
     startStation: "",
@@ -74,7 +74,7 @@ const generateInitialValues = () => {
     items: [
       {
         receiptNo: receiptNo,
-        refNo: refNo,
+        refNo: "",
         insurance: "",
         vppAmount: "",
         toPay: "",
@@ -85,6 +85,7 @@ const generateInitialValues = () => {
     ],
     addComment: "",
     freight: "",
+    billty: "20",
     ins_vpp: "",
     billTotal: "",
     cgst: "",
@@ -94,29 +95,30 @@ const generateInitialValues = () => {
   };
 };
 const totalFields = [
-  { name: "freight", label: "FREIGHT", readOnly: false },
+  { name: "freight", label: "FREIGHT", readOnly: true },
   { name: "ins_vpp", label: "INS/VPP", readOnly: false },
   { name: "billTotal", label: "Bill Total", readOnly: true },
   { name: "cgst", label: "CGST%", readOnly: false },
   { name: "sgst", label: "SGST%", readOnly: false },
   { name: "igst", label: "IGST%", readOnly: false },
+  { name: "billty", label: "Billty", readOnly: true },
   { name: "grandTotal", label: "Grand Total", readOnly: true },
   { name: "roundOff", label: "Round Off", readOnly: true },
 ];
 const calculateTotals = (values) => {
   const items = values.items || [];
 
-  const itemTotal = items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const freight = Number(values.freight || 0);
+  const freight = items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const ins_vpp = Number(values.ins_vpp || 0);
 
-  const billTotal = itemTotal + freight + ins_vpp;
+  const billTotal = freight + ins_vpp;
 
   const cgst = (Number(values.cgst || 0) / 100) * billTotal;
   const sgst = (Number(values.sgst || 0) / 100) * billTotal;
   const igst = (Number(values.igst || 0) / 100) * billTotal;
+  const billty = (Number(values.billty || 0))
 
-  let grandTotal = billTotal + cgst + sgst + igst;
+  let grandTotal = billTotal + cgst + sgst + igst + billty;
 
   // --- Round Off Calculation ---
   const roundedGrandTotal = Math.round(grandTotal); // round to nearest whole number
@@ -125,6 +127,7 @@ const calculateTotals = (values) => {
   grandTotal = roundedGrandTotal; // update grand total to rounded value
 
   return {
+    freight: freight.toFixed(2),
     billTotal: billTotal.toFixed(2),
     grandTotal: grandTotal.toFixed(2),
     computedTotalRevenue: grandTotal.toFixed(2),
@@ -814,12 +817,12 @@ const EffectSyncCities = ({ values, dispatch, setSenderCities, setReceiverCities
 const EffectSyncTotals = ({ values, setFieldValue }) => {
   useEffect(() => {
     const totals = calculateTotals(values);
+    setFieldValue("freight", totals.freight);
     setFieldValue("billTotal", totals.billTotal);
     setFieldValue("grandTotal", totals.grandTotal);
     setFieldValue("roundOff", totals.roundOff);
   }, [
     values.items,
-    values.freight,
     values.ins_vpp,
     values.cgst,
     values.sgst,
